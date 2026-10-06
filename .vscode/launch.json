@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "FinanceLogistics API (HTTPS)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-finance-logistics",
+      "program": "${workspaceFolder}/src/FinanceLogistics.Api/bin/Debug/net10.0-windows/FinanceLogistics.Api.dll",
+      "cwd": "${workspaceFolder}/src/FinanceLogistics.Api",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:7243"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/login.html"
+      },
+      "console": "integratedTerminal"
+    }
+  ]
+}

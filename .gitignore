@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+appsettings.Local.json
+appsettings.Production.json
+secrets.json
+*.pfx
+*.key
+node_modules/

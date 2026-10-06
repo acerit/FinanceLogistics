@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Phạm vi truy cập · Finance–Logistics</title><link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header><strong>FINANCE · LOGISTICS</strong><div><button id="reload" class="secondary">Cập nhật quyền</button><button id="logout" class="secondary">Đăng xuất</button></div></header>
+  <main class="workspace">
+    <p class="eyebrow">TÀI KHOẢN CỦA BẠN</p><h1>Phạm vi truy cập</h1>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="account" hidden>
+      <div class="profile"><h2 id="display-name"></h2><p id="username-label"></p><p>Nhóm quyền: <strong id="roles"></strong></p><p>Site: <strong id="sites"></strong></p></div>
+      <h2>Nguồn dữ liệu được phép truy cập</h2>
+      <div class="table-wrap"><table><thead><tr><th>Nguồn</th><th>Phạm vi</th><th>Site</th></tr></thead><tbody id="source-rows"></tbody></table></div>
+      <p id="empty-sources" hidden>Hiện tại tài khoản chưa có quyền truy cập nguồn dữ liệu.</p>
+      <p class="muted">Chức năng nộp file sẽ được bổ sung ở bước triển khai tiếp theo.</p>
+    </section>
+  </main>
+  <script type="module" src="/js/app.mjs"></script>
+</body>
+</html>

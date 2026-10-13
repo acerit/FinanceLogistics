@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PO theo kỳ | Finance–Logistics</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/po-periods.css">
+  <script type="module" src="/js/po-periods.mjs"></script>
+</head>
+<body>
+  <header>
+    <strong>Finance–Logistics</strong>
+    <div>
+      <a href="/index.html">Tài khoản và quyền</a>
+      <button id="reload" class="secondary" type="button">Tải lại</button>
+      <button id="logout" type="button">Đăng xuất</button>
+    </div>
+  </header>
+  <main class="workspace">
+    <p class="eyebrow">FINANCE · PO_UPDATED</p>
+    <h1>Nộp dữ liệu PO theo tháng</h1>
+    <p class="muted">Chọn kỳ để xem mục cần nộp và bản dữ liệu đang được sử dụng.</p>
+    <p id="status" role="status" aria-live="polite">Đang tải…</p>
+    <section id="workspace-content" hidden>
+      <div class="profile">
+        <p id="identity-label"></p>
+        <label for="period">Kỳ dữ liệu</label>
+        <select id="period"></select>
+        <p id="period-status" class="muted"></p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption class="table-caption">Yêu cầu nộp trong kỳ đã chọn</caption>
+          <thead><tr><th>Nguồn</th><th>Phạm vi</th><th>Hạn nộp</th><th>Trạng thái</th><th>Bản đang dùng</th></tr></thead>
+          <tbody id="requirement-rows"></tbody>
+        </table>
+      </div>
+      <p id="empty" class="muted" hidden>Chưa có kỳ PO được mở. Liên hệ người quản lý kỳ dữ liệu.</p>
+      <p class="muted">Chức năng tải tệp và xác nhận dữ liệu sẽ được bổ sung ở đợt tiếp theo.</p>
+    </section>
+  </main>
+</body>
+</html>

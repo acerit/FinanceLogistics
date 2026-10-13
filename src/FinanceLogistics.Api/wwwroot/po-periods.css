@@ -1,0 +1,5 @@
+select{font:inherit;width:min(100%,360px);padding:.7rem;border:1px solid #9caeb9;border-radius:7px;background:#fff}
+select:focus{outline:3px solid #aedaca;outline-offset:1px}
+header a{color:#17634f;align-self:center}
+.table-caption{text-align:left;padding:1rem;background:#fff;font-weight:650}
+button:disabled{cursor:not-allowed}

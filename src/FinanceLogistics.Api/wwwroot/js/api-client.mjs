@@ -3,11 +3,12 @@ import { ApiError, readResponse } from './identity-utils.mjs';
 export function createIdentityClient({ fetchImpl = globalThis.fetch.bind(globalThis), now = () => Date.now() } = {}) {
   let token = null, expiresAt = 0, user = null, csrfToken = null, renewal = null;
 
-  async function raw(path, options = {}) {
+  async function raw(path, options = {}, responseMode = 'json') {
     if (!path.startsWith('/api/')) throw new Error('Only relative application API paths are supported.');
     let response;
     try { response = await fetchImpl(path, { credentials: 'same-origin', cache: 'no-store', ...options }); }
     catch { throw new ApiError('NETWORK_ERROR', 'Không thể kết nối đến máy chủ.'); }
+    if (responseMode === 'blob' && response.ok) return response.blob();
     return readResponse(response);
   }
 
@@ -59,11 +60,11 @@ export function createIdentityClient({ fetchImpl = globalThis.fetch.bind(globalT
     return renewal;
   }
 
-  async function request(path, options = {}) {
+  async function request(path, options = {}, responseMode = 'json') {
     if (!token || expiresAt - now() < 30000) await restore();
     const execute = () => raw(path, {
       ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` }
-    });
+    }, responseMode);
     try { return await execute(); }
     catch (error) {
       // Only reads are retried. Upload/confirm operations will need their own idempotency contract.
@@ -78,6 +79,7 @@ export function createIdentityClient({ fetchImpl = globalThis.fetch.bind(globalT
     async login(credentials) { return accept(await sessionRequest('login', credentials)); },
     restore,
     request,
+    async download(path) { return request(path, { method: 'GET' }, 'blob'); },
     async me() { const current = await request('/api/me'); user = current; return current; },
     async sources() { return request('/api/me/source-access'); },
     async logout() { await sessionRequest('logout'); clearMemory(); csrfToken = null; }

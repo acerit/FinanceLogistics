@@ -18,7 +18,10 @@ public sealed partial class SqlPoImportService
         await using var cmd = c.Command("""
             SELECT b.*,f.OriginalName,f.StorageKey,f.MediaType,f.Sha256,
                    r.ActiveBatchId,r.RowVersion AS RequirementRowVersion,r.PeriodId,
-                   p.Status AS PeriodStatus,j.Status AS JobStatus,j.LastErrorCode AS JobErrorCode,j.AttemptCount AS JobAttempts
+                   p.Status AS PeriodStatus,
+                   (SELECT MIN(TransactionDate) FROM src.PoUpdateLine WHERE BatchId=b.BatchId) AS CoverageStart,
+                   (SELECT MAX(TransactionDate) FROM src.PoUpdateLine WHERE BatchId=b.BatchId) AS CoverageEnd,
+                   j.Status AS JobStatus,j.LastErrorCode AS JobErrorCode,j.AttemptCount AS JobAttempts
             FROM ingest.ImportBatch b JOIN ingest.StoredFile f ON f.FileId=b.FileId
             JOIN ingest.SubmissionRequirement r ON r.RequirementId=b.RequirementId
             JOIN cfg.ReportingPeriod p ON p.PeriodId=r.PeriodId
@@ -32,10 +35,17 @@ public sealed partial class SqlPoImportService
     {
         await using var c = await database.OpenAsync(ct);
         var b = await BatchAsync(c, batchId, ct);
+        using var options = JsonDocument.Parse(b.Text("ParsingOptionsJson"));
+        var settings = options.RootElement;
+        var profile = settings.GetProperty("profile").GetString()!;
+        var periodMode = settings.TryGetProperty("periodMode", out var mode) ? mode.GetString()! : PoProfile.SelectedMonth;
         return new(PoProfile.Id(batchId), PoProfile.Id(b.Long("RequirementId")), b.Int("VersionNo"), b.Text("Status"),
             b.Text("OriginalName"), b.Int("TotalRows"), b.Int("ErrorCount"), b.Int("WarningCount"), PoProfile.Utc(b.Date("UploadedAtUtc")),
             b["ActiveBatchId"] is long active && active == batchId, b.Maybe("ActiveBatchId"), Convert.ToBase64String(b.Bytes("RequirementRowVersion")),
-            b.Text("PeriodStatus"), b.Maybe("JobStatus"), b.Maybe("JobErrorCode"), b.Int("JobAttempts"), PoProfile.Headers);
+            b.Text("PeriodStatus"), b.Maybe("JobStatus"), b.Maybe("JobErrorCode"), b.Int("JobAttempts"), PoProfile.Headers,
+            profile, periodMode,
+            b["CoverageStart"] is DateTime first ? first.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : null,
+            b["CoverageEnd"] is DateTime last ? last.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : null);
     }
     public async Task<PoPage<PoHistoryDto>> HistoryAsync(long requirementId, int page, CancellationToken ct)
     {
@@ -59,7 +69,12 @@ public sealed partial class SqlPoImportService
         await using var c = await database.OpenAsync(ct);
         await BatchAsync(c, batchId, ct); // Constrain every read to PO/FINANCE_SHARED, including guessed IDs.
         await using var cmd = c.Command("""
-            SELECT rr.RecordNumber,rr.SheetName,rr.CellsJson,p.*,COUNT(*) OVER() AS Total
+            SELECT rr.RecordNumber,rr.SheetName,rr.CellsJson,p.SourceLineId,p.SourceCodeText,p.ReceiptNumber,p.TransactionDate,p.PoNumber,
+                   p.ReceiptQuantity,CONVERT(varchar(60),p.PoUnitPrice) AS PoUnitPrice,p.PoLineReference,
+                   p.PoCurrency,p.PoRateDate,p.PoRate,p.ReceiptRate,p.ReceiptRateDate,
+                   CONVERT(varchar(60),p.PurchaseFunctionalAmount) AS PurchaseFunctionalAmount,p.InvoiceNumber,
+                   p.InvoiceFunctionalAmount,CONVERT(varchar(60),p.InvoiceAmount) AS InvoiceAmount,
+                   p.LineDescription,COUNT(*) OVER() AS Total
             FROM ingest.RawRow rr LEFT JOIN src.PoUpdateLine p ON p.RawRowId=rr.RawRowId AND p.BatchId=rr.BatchId
             WHERE rr.BatchId=@id ORDER BY rr.RecordNumber OFFSET @offset ROWS FETCH NEXT 50 ROWS ONLY;
             """, null, ("@id", batchId), ("@offset", offset));
@@ -68,9 +83,13 @@ public sealed partial class SqlPoImportService
             null => null, DateTime date => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             decimal number => number.ToString(CultureInfo.InvariantCulture), _ => value.ToString()
         };
+        static string? FormatField(string name, object? value) =>
+            (name is "PoUnitPrice" or "PurchaseFunctionalAmount" or "InvoiceAmount") && value is string number
+                ? number.Contains('.') ? number.TrimEnd('0').TrimEnd('.') : number
+                : Format(value);
         return new(page, PageSize, rows.FirstOrDefault()?.Int("Total") ?? 0, rows.Select(r => new PoPreviewRowDto(
             r.Int("RecordNumber"), r.Text("SheetName"), JsonSerializer.Deserialize<PoCellDto[]>(r.Text("CellsJson"), PoProfile.Json) ?? [],
-            r["SourceLineId"] is null ? null : PoProfile.Properties.Select(name => Format(r[name])).ToArray())).ToArray());
+            r["SourceLineId"] is null ? null : PoProfile.Properties.Select(name => FormatField(name, r[name])).ToArray())).ToArray());
     }
     public async Task<PoPage<PoIssueDto>> IssuesAsync(long batchId, int page, CancellationToken ct)
     {

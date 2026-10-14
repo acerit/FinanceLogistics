@@ -48,7 +48,7 @@ public sealed partial class SqlPoImportService(PoDatabase database, LocalPoFileS
             """);
         return (await cmd.RowsAsync(ct)).Where(x => PoProfile.Supports(x.Text("DefinitionJson")))
             .Select(x => new PoTemplateDto(PoProfile.Id(x.Long("TemplateVersionId")), x.Int("VersionNo"),
-                PoProfile.Code, PoProfile.Headers)).ToArray();
+                PoProfile.ProfileCode(x.Text("DefinitionJson")), PoProfile.Headers)).ToArray();
     }
 
     public async Task<UploadPoResult> UploadAsync(UploadPoCommand command, Stream content, CancellationToken ct)
@@ -79,9 +79,10 @@ public sealed partial class SqlPoImportService(PoDatabase database, LocalPoFileS
             var template = (await templateCmd.RowsAsync(ct)).SingleOrDefault();
             if (template is null || !PoProfile.Supports(template.Text("DefinitionJson")))
                 throw new PoImportFault(409, "TEMPLATE_UNSUPPORTED", "Mẫu chưa được bộ đọc PO hiện tại hỗ trợ.");
+            var profile = PoProfile.ProfileCode(template.Text("DefinitionJson"));
             var fingerprint = SHA256.HashData(Encoding.UTF8.GetBytes(PoProfile.Serialize(new {
                 hash = Convert.ToHexString(stored.Sha256), command.TemplateVersionId, command.ActorId,
-                originalName, profile = PoProfile.Code
+                originalName, profile
             })));
             await using (var previous = c.Command("""
                 SELECT BatchId,VersionNo,Status,UploadFingerprint FROM ingest.ImportBatch
@@ -105,7 +106,10 @@ public sealed partial class SqlPoImportService(PoDatabase database, LocalPoFileS
                 throw new PoImportFault(409, "TEMPLATE_NOT_APPROVED", "Mẫu chưa được duyệt hoặc đã ngừng dùng.");
             limits = PoProfile.Limits(req.Text("PolicySnapshotJson"));
             if (stored.SizeBytes > limits.Bytes) throw new PoImportFault(413, "FILE_TOO_LARGE", "Dung lượng vượt chính sách kỳ.");
-            var options = PoProfile.Serialize(new { profile = PoProfile.Code, maxRows = limits.Rows,
+            if (profile == PoProfile.FinanceCode && extension != ".xlsx")
+                throw new PoImportFault(400, "PROFILE_REQUIRES_XLSX", "Mẫu PO Finance V1 cần file .xlsx nguyên bản.");
+            var periodMode = PoProfile.PeriodMode(profile, req.Text("PolicySnapshotJson"));
+            var options = PoProfile.Serialize(new { profile, periodMode, maxRows = limits.Rows,
                 startDate = req.Date("StartDate").ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 endDateExclusive = req.Date("EndDateExclusive").ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 templateDefinition = JsonSerializer.Deserialize<JsonElement>(template.Text("DefinitionJson")) });

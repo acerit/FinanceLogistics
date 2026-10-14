@@ -8,10 +8,12 @@ public sealed record UploadPoResult(string BatchId, int VersionNo, string Status
 public sealed record PoBatchDto(string BatchId, string RequirementId, int VersionNo, string Status,
     string OriginalName, int TotalRows, int ErrorCount, int WarningCount, string UploadedAtUtc,
     bool IsCurrent, string? ActiveBatchId, string RequirementRowVersion, string PeriodStatus,
-    string? JobStatus, string? JobErrorCode, int JobAttempts, string[] Headers);
+    string? JobStatus, string? JobErrorCode, int JobAttempts, string[] Headers, string Profile, string PeriodMode, string? CoverageStart, string? CoverageEnd);
 public sealed record PoHistoryDto(string BatchId, int VersionNo, string Status, string OriginalName,
     string UploadedAtUtc, bool IsCurrent, int TotalRows, int ErrorCount, int WarningCount);
-public sealed record PoCellDto(int Ordinal, string Header, string? Text, string CellType);
+public sealed record PoCellDto(int Ordinal, string Header, string? Text, string CellType,
+    string? CellReference = null, string? Formula = null, string? CachedValue = null,
+    string? FormulaOrigin = null, string? FormulaKind = null, string? SharedFormulaId = null);
 public sealed record PoPreviewRowDto(int RecordNumber, string SheetName,
     IReadOnlyList<PoCellDto> RawCells, IReadOnlyList<string?>? NormalizedCells);
 public sealed record PoIssueDto(string Severity, string IssueCode, string? ColumnName,

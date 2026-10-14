@@ -24,7 +24,7 @@
     <form id="uploadForm">
       <div class="form-grid"><label>Mẫu nhập<select id="template" required></select></label>
         <label>File dữ liệu<input id="file" type="file" accept=".csv,.xlsx,.xls" required></label></div>
-      <p class="muted">Mẫu thực hành: 17 cột, header ở dòng 1. CSV dùng UTF-8; Excel có một sheet PO_UPDATED. Ngày dạng yyyy-MM-dd, tối đa 10 MiB.</p>
+      <p id="templateHint" class="muted"></p>
       <div class="actions"><button id="upload" type="submit" class="primary" disabled>Gửi và kiểm tra</button>
         <button id="templateDownload" type="button">Tải mẫu CSV</button></div>
     </form>
@@ -33,6 +33,7 @@
     <div class="section-head"><h2 id="previewTitle">3. Xem và xác nhận</h2><button id="refresh" disabled>Lấy lại preview</button></div>
     <p id="batchSummary">Chưa chọn lần nộp.</p>
     <p id="counts" class="muted"></p>
+    <p id="coverage" class="muted"></p>
     <div class="actions"><button id="original" disabled>Tải file gốc</button><button id="retry" hidden>Thử lại xử lý</button>
       <label class="check"><input id="rawToggle" type="checkbox"> Xem giá trị gốc</label></div>
     <div id="previewTable" class="table-wrap" tabindex="0" aria-label="Dữ liệu xem trước"></div>
@@ -48,6 +49,6 @@
     <div class="pager"><button id="historyPrevious" disabled>Trang trước</button><span id="historyPage"></span><button id="historyNext" disabled>Trang sau</button></div>
   </section>
 </main>
-<footer>PO_UPDATED · Mốc nhập dữ liệu · Mẫu nghiệp vụ chính thức sẽ được duyệt riêng.</footer>
+<footer>PO_UPDATED · Kiểm tra nguồn Finance · Báo cáo PO_receipt được triển khai ở bước mapping.</footer>
 <script type="module" src="/js/po-upload.mjs"></script>
 </body></html>

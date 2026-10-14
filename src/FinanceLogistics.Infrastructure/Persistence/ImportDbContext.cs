@@ -28,12 +28,12 @@ public sealed class PoUpdateLineConfiguration : IEntityTypeConfiguration<PoUpdat
         b.Property(x => x.InvoiceNumber).HasMaxLength(200);
         b.Property(x => x.LineDescription).HasMaxLength(2000);
         b.Property(x => x.ReceiptQuantity).HasPrecision(28, 6);
-        b.Property(x => x.PoUnitPrice).HasPrecision(28, 8);
+        b.Property(x => x.PoUnitPrice).HasPrecision(38, 18);
         b.Property(x => x.PoRate).HasPrecision(28, 10);
         b.Property(x => x.ReceiptRate).HasPrecision(28, 10);
-        b.Property(x => x.PurchaseFunctionalAmount).HasPrecision(28, 8);
+        b.Property(x => x.PurchaseFunctionalAmount).HasPrecision(38, 18);
         b.Property(x => x.InvoiceFunctionalAmount).HasPrecision(28, 8);
-        b.Property(x => x.InvoiceAmount).HasPrecision(28, 8);
+        b.Property(x => x.InvoiceAmount).HasPrecision(38, 18);
         b.HasIndex(x => x.RawRowId).IsUnique();
         b.HasIndex(x => x.BatchId);
         // Composite foreign keys are enforced by database/004. The other entities

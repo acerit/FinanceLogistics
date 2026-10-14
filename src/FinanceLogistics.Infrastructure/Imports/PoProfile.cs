@@ -9,6 +9,9 @@ namespace FinanceLogistics.Infrastructure.Imports;
 public static class PoProfile
 {
     public const string Code = "PO_FLAT_ISO_V1_DEV";
+    public const string FinanceCode = "PO_FINANCE_XLSX_V1";
+    public const string SelectedMonth = "SELECTED_MONTH";
+    public const string YearToPeriod = "YEAR_TO_PERIOD";
     public const long MaxBytes = 10 * 1024 * 1024;
     public const int MaxRows = 10_000;
     public static readonly string[] Headers = ["Souce", "Receipt Num", "Trx date", "PO Num",
@@ -23,10 +26,27 @@ public static class PoProfile
     public static string Id(long value) => value.ToString(CultureInfo.InvariantCulture);
     public static string Utc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc).ToString("O");
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Json);
-    public static bool Supports(string definition)
+    public static bool IsKnown(string? profile) => profile is Code or FinanceCode;
+    public static string ProfileCode(string definition)
     {
         using var document = JsonDocument.Parse(definition);
-        return document.RootElement.TryGetProperty("profile", out var profile) && profile.GetString() == Code;
+        return document.RootElement.GetProperty("profile").GetString() ?? "";
+    }
+    public static bool Supports(string definition)
+    {
+        try { return IsKnown(ProfileCode(definition)); }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException) { return false; }
+    }
+    // A template describes layout; the requirement owns the reporting-period policy.
+    // Existing DEV requirements keep their strict-month behavior. Finance must be configured explicitly.
+    public static string PeriodMode(string profile, string policy)
+    {
+        if (profile == Code) return SelectedMonth;
+        using var document = JsonDocument.Parse(policy);
+        if (profile == FinanceCode && document.RootElement.TryGetProperty("financePoPeriodMode", out var value)
+            && value.GetString() is string mode && (mode is SelectedMonth or YearToPeriod)) return mode;
+        throw new PoImportFault(409, "PO_PERIOD_POLICY_REQUIRED",
+            "Kỳ này chưa cấu hình cách nhận PO Finance theo tháng hay lũy kế. Chọn kỳ DEV đã cấu hình hoặc liên hệ quản trị.");
     }
     public static (long Bytes, int Rows) Limits(string policy)
     {

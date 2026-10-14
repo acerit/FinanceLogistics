@@ -1,0 +1,87 @@
+﻿[
+    {
+        "path":  "database/009_po_finance_numeric_precision.sql",
+        "beforeSha256":  null,
+        "afterSha256":  "c9a0fe7251eaa0921ff162027e79fc4ff01d546febb80c5dc80375d3b154e6e3"
+    },
+    {
+        "path":  "database/010_seed_po_finance_profile_dev.sql",
+        "beforeSha256":  null,
+        "afterSha256":  "54b8fd8da6beb99bbe3b1bad115b32e93dc64287898d0b28060f14f54cfd946a"
+    },
+    {
+        "path":  "database/011_verify_po_finance_dev.sql",
+        "beforeSha256":  null,
+        "afterSha256":  "ee5e01230ccd80e6e7c61dc92a21db6a976aa2d873015077ca5ed85ddcf4117b"
+    },
+    {
+        "path":  "src/FinanceLogistics.Api/wwwroot/js/po-ui-rules.mjs",
+        "beforeSha256":  "03d459540d3f0173ad293100898cf618e7c82823e6081b48446c4a12792caaa4",
+        "afterSha256":  "7b8e3168adb65b103894612863e065b0f79aec5938e20080b1be739ca13913dd"
+    },
+    {
+        "path":  "src/FinanceLogistics.Api/wwwroot/js/po-upload.mjs",
+        "beforeSha256":  "1cf86dd7cd8e9070917d0b22af91508feee55c2ce93eb521d43f75ed8739eb01",
+        "afterSha256":  "1d4e841e11d5a199f2c2aac435d402b9082c4a4783dc50cbadf7c17afd1ed9f7"
+    },
+    {
+        "path":  "src/FinanceLogistics.Api/wwwroot/po-upload.html",
+        "beforeSha256":  "5dcb5c441b1bbf416923d866f3d49c11e8f88d87da68a0093747602eeb3ad066",
+        "afterSha256":  "900eaa477f6bcedb2d1d6e535f41b39d7410d7d1e3af254dd349271af73450f4"
+    },
+    {
+        "path":  "src/FinanceLogistics.Application/Imports/PoImportContracts.cs",
+        "beforeSha256":  "ab3654bc02c684437d06cded83c968de8fa7b823eb448b6a4467d977240d1e45",
+        "afterSha256":  "6bf825481be1df9f01b4df64e6c840895ebf44c098e55e32fa4b34b896931aa9"
+    },
+    {
+        "path":  "src/FinanceLogistics.Infrastructure/Imports/PoFileParser.cs",
+        "beforeSha256":  "05b35702d1959ebe0c5573210d0c6e36faa6e41a2f93fcad7ed74fb85aae1d65",
+        "afterSha256":  "392dc1c75c714d8e15ee609f273ca1fbce5156193d6b915013ed87b389079c84"
+    },
+    {
+        "path":  "src/FinanceLogistics.Infrastructure/Imports/PoFinanceXlsxParser.cs",
+        "beforeSha256":  null,
+        "afterSha256":  "cfb0b6a0dc46166a3f34235c07c74a9eaad73a1031431cf13adb3c2f4c256aed"
+    },
+    {
+        "path":  "src/FinanceLogistics.Infrastructure/Imports/PoProfile.cs",
+        "beforeSha256":  "ef800bd8b3611eaf68a7122939f7eef5d500292d7eff37c6ba938153fae10c55",
+        "afterSha256":  "9c4fcbe79f903a48d96e9df2bbe3f6706a72c985cfe5b6943eed0d46726afc80"
+    },
+    {
+        "path":  "src/FinanceLogistics.Infrastructure/Imports/SqlPoImportQueries.cs",
+        "beforeSha256":  "d92db70d2667b7086e5cf3f51a95d9d0aed5a4f016bc5525061870786364cc71",
+        "afterSha256":  "4db9799ec8d069d4be9bbcf6a514b1bc75359b1bf07561500b124a7b296ee1d4"
+    },
+    {
+        "path":  "src/FinanceLogistics.Infrastructure/Imports/SqlPoImportService.cs",
+        "beforeSha256":  "faff04a92884eeba743b49f152463252bcecac428cfb02a5a82225e86888b7b6",
+        "afterSha256":  "374bf62484672ce063665e71b60b0fb9189729803d24f1b3cc0c1c7a12d7e36e"
+    },
+    {
+        "path":  "src/FinanceLogistics.Infrastructure/Imports/SqlPoJobProcessor.cs",
+        "beforeSha256":  "835ec736280d33aceba94cc8e6ec50052825dfb267d83b765daf03d5b5f2086a",
+        "afterSha256":  "250d319f59eff96f0d21af0d71f9aa5b8a81172e40dbf2ff8d69f7b4380c46ca"
+    },
+    {
+        "path":  "src/FinanceLogistics.Infrastructure/Persistence/ImportDbContext.cs",
+        "beforeSha256":  "2f7137e0f433802df6dd6a5cda59e2e5ad497ef8ab656bcb5a8a24ec5ead08f9",
+        "afterSha256":  "26eabb9e3035c882996e19ab451c146448141273666c3cc059a4e83c19736efa"
+    },
+    {
+        "path":  "tests/PoFinance.Checks/PoFinance.Checks.csproj",
+        "beforeSha256":  null,
+        "afterSha256":  "2408383756b924b3f8d373d45206aa7af632ba5e06def9f292f7069f885ee558"
+    },
+    {
+        "path":  "tests/PoFinance.Checks/Program.cs",
+        "beforeSha256":  null,
+        "afterSha256":  "b2bba26d6007a5b4ee8145ed96fe391e2bfbb1fe9549a3562808485c3133fae6"
+    },
+    {
+        "path":  "tests/frontend/po-upload.test.mjs",
+        "beforeSha256":  "64dbb06b4e5493fc47b849841c0009da4bacca09ab1cf039d403d4d5187d9983",
+        "afterSha256":  "f68c016790f586e3ef67bc585c26349f3888cab54f8c9a2585e8d6b07b105237"
+    }
+]

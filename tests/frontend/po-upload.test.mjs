@@ -60,3 +60,22 @@ test('preview raw theo đúng tên cột dù nguồn đổi vị trí; số 0 kh
   assert.deepEqual(previewCells(row, ['Receipt Num', 'PO Num', 'Receipt QTY'], true), ['0001', 'P1', '0']);
   assert.deepEqual(previewCells(row, [], false), ['0001', 'P1', '0']);
 });
+
+test('PO Curr ở raw preview khớp cột PO Currency', () => {
+  assert.deepEqual(previewCells({rawCells:[{header:'PO Curr',text:'USD'}]}, ['PO Currency'], true), ['USD']);
+});
+test('batch cũ thiếu metadata mới vẫn đọc được', () => {
+  assert.deepEqual(previewCells({rawCells:[{ordinal:14,header:'Invoice No.',text:'0003',cellType:'String'}]}, ['Invoice No.'], true), ['0003']);
+});
+test('Finance template không tải nhầm mẫu CSV', async () => {
+  const { templatePresentation } = await import('../../src/FinanceLogistics.Api/wwwroot/js/po-ui-rules.mjs');
+  const finance = templatePresentation({profile:'PO_FINANCE_XLSX_V1',versionNo:900002});
+  assert.equal(finance.accept,'.xlsx'); assert.equal(finance.allowCsvDownload,false);
+  assert.match(finance.label,/Finance/);
+  assert.equal(templatePresentation({profile:'PO_FLAT_ISO_V1_DEV'}).allowCsvDownload,true);
+});
+test('phạm vi nguồn không được trình bày như bằng chứng đủ dữ liệu', async () => {
+  const { coverageLabel } = await import('../../src/FinanceLogistics.Api/wwwroot/js/po-ui-rules.mjs');
+  assert.equal(coverageLabel({}), '');
+  assert.match(coverageLabel({periodMode:'YEAR_TO_PERIOD',coverageStart:'2026-01-07',coverageEnd:'2026-07-31'}), /chưa chứng minh/);
+});

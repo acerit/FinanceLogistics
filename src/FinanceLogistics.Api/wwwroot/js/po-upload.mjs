@@ -1,5 +1,5 @@
 import { createIdentityClient } from './api-client.mjs';
-import { canConfirm, needsPolling, previewCells } from './po-ui-rules.mjs';
+import { canConfirm, needsPolling, previewCells, templatePresentation, coverageLabel } from './po-ui-rules.mjs';
 const api = createIdentityClient();
 const $ = id => document.getElementById(id);
 let user, requirements = [], templates = [], requirement = null, batch = null;
@@ -9,6 +9,13 @@ const labels = { RECEIVED: 'Đã nhận file', VALIDATING: 'Đang kiểm tra', R
   INVALID: 'Cần sửa lỗi', COMMITTED: 'Đã xác nhận', DISCARDED: 'Đã bỏ', OPEN: 'Đang mở', REVIEW: 'Đang rà soát', CLOSED: 'Đã khóa' };
 function message(text, kind = '') { $('message').textContent = text; $('message').className = kind; }
 function stopPolling() { clearTimeout(timer); }
+function selectedTemplate() { return templates.find(t => t.templateVersionId === $('template').value); }
+function drawTemplate() {
+  const view = templatePresentation(selectedTemplate());
+  $('templateHint').textContent = view.hint;
+  $('file').accept = view.accept;
+  $('templateDownload').hidden = !view.allowCsvDownload;
+}
 function controls() {
   $('upload').disabled = busy || !requirement || requirement.periodStatus !== 'OPEN' || !templates.length;
   $('period').disabled = busy; $('template').disabled = busy; $('file').disabled = busy;
@@ -88,6 +95,7 @@ async function history() {
 }
 function drawBatch() {
   $('batchSummary').textContent = `Bản ${batch.versionNo} · ${batch.originalName} · ${labels[batch.status] || batch.status}${batch.isCurrent ? ' · ĐANG ĐƯỢC SỬ DỤNG' : ''}`;
+  $('coverage').textContent = coverageLabel(batch);
   $('counts').textContent = `${batch.totalRows} dòng đã đọc · ${batch.errorCount} lỗi · ${batch.warningCount} cảnh báo · Mã lần nộp ${batch.batchId}`
     + (batch.jobStatus === 'FAILED' ? ` · Xử lý chưa hoàn thành: ${batch.jobErrorCode}. Sửa lỗi kỹ thuật rồi bấm Thử lại xử lý.` : '');
   $('active').textContent = batch.activeBatchId ? `Mã lần nộp ${batch.activeBatchId}` : 'Chưa có bản được xác nhận';
@@ -122,7 +130,7 @@ async function choosePeriod() {
   stopPolling(); const stamp = ++epoch; previewEpoch++;
   requirement = null; batch = null; expectedVersion = null; rowData = null; historyPage = 1;
   ['previewTable', 'issuesTable', 'historyTable'].forEach(id => $(id).replaceChildren());
-  $('batchSummary').textContent = 'Chưa chọn lần nộp.'; $('counts').textContent = '';
+  $('batchSummary').textContent = 'Chưa chọn lần nộp.'; $('counts').textContent = ''; $('coverage').textContent = '';
   $('warnings').checked = false; controls();
   const data = await api.request(`/api/periods/${$('period').value}/requirements`);
   if (stamp !== epoch) return;
@@ -141,6 +149,8 @@ function saveBlob(blob, name) {
 $('uploadForm').addEventListener('submit', event => { event.preventDefault(); action(async () => {
   if (busy || !requirement) return;
   const file = $('file').files[0]; if (!file) throw new Error('Hãy chọn file.');
+  if (selectedTemplate()?.profile === 'PO_FINANCE_XLSX_V1' && !file.name.toLowerCase().endsWith('.xlsx'))
+    throw new Error('Mẫu PO Finance cần XLSX nguyên bản. Hãy chọn lại file hoặc mẫu nhập.');
   if (file.size > 10 * 1024 * 1024) throw new Error('File vượt 10 MiB.');
   busy = true; controls(); let uploaded;
   try {
@@ -175,11 +185,13 @@ $('original').addEventListener('click', () => action(async () => {
   saveBlob(await api.download(`/api/po/batches/${batchId}/original`), originalName);
 }));
 $('templateDownload').addEventListener('click', () => {
-  if (templates.length) saveBlob(new Blob(['\uFEFF' + templates[0].headers.join(',') + '\r\n'], { type: 'text/csv;charset=utf-8' }), 'PO_UPDATED_Template_DEV.csv');
+  const template = selectedTemplate();
+  if (templatePresentation(template).allowCsvDownload) saveBlob(new Blob(['\uFEFF' + template.headers.join(',') + '\r\n'], { type: 'text/csv;charset=utf-8' }), 'PO_UPDATED_Template_DEV.csv');
 });
 $('refresh').addEventListener('click', () => { if (batch) action(() => showBatch(batch.batchId)); });
 $('historyRefresh').addEventListener('click', () => action(history));
 $('period').addEventListener('change', () => action(choosePeriod));
+$('template').addEventListener('change', drawTemplate);
 $('warnings').addEventListener('change', controls); $('rawToggle').addEventListener('change', drawRows);
 for (const [prefix, getPage, setPage, load] of [
   ['rows', () => rowPage, x => rowPage = x, loadRows], ['issues', () => issuePage, x => issuePage = x, loadIssues],
@@ -194,7 +206,8 @@ await action(async () => {
   if (!user.roles.includes('FINANCE')) throw new Error('Trang PO yêu cầu quyền FINANCE. SYSTEM_ADMIN riêng lẻ không thay cho quyền nghiệp vụ.');
   [requirements, templates] = await Promise.all([api.request('/api/periods'), api.request('/api/po/templates')]);
   $('period').replaceChildren(...requirements.map(p => new Option(p.periodCode, p.periodId)));
-  $('template').replaceChildren(...templates.map(t => new Option(`Mẫu DEV · phiên bản ${t.versionNo}`, t.templateVersionId)));
+  $('template').replaceChildren(...templates.map(t => new Option(templatePresentation(t).label, t.templateVersionId)));
+  drawTemplate();
   if (!templates.length) message('Chưa có mẫu PO được duyệt. Kiểm tra bước 007 trong hướng dẫn.', 'warning');
   if (requirements.length) await choosePeriod(); else message('Chưa có kỳ PO được cấu hình.', 'warning');
 });

@@ -22,7 +22,7 @@ public sealed class ParsedPoFile
 }
 
 // No Excel engine is invoked; formulas are not recalculated. See the DEV profile in README.
-public sealed class PoFileParser
+public sealed partial class PoFileParser
 {
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
     private const int MaxRawCharacters = 4_000_000;
@@ -33,13 +33,21 @@ public sealed class PoFileParser
     }
 
     public ParsedPoFile Parse(Stream stream, string originalName, DateOnly start, DateOnly end,
-        int maxRows = PoProfile.MaxRows, CancellationToken ct = default)
+        int maxRows = PoProfile.MaxRows, CancellationToken ct = default, string profile = PoProfile.Code, string periodMode = PoProfile.SelectedMonth)
     {
         var result = new ParsedPoFile();
         try
         {
             var extension = Path.GetExtension(originalName).ToLowerInvariant();
-            if (extension == ".csv") ParseCsv(stream, result, start, end, maxRows, ct);
+            if (profile == PoProfile.FinanceCode)
+            {
+                if (extension != ".xlsx") Error(result, "PROFILE_REQUIRES_XLSX", "Mẫu PO Finance V1 chỉ nhận XLSX nguyên bản.");
+                else if (periodMode is not (PoProfile.SelectedMonth or PoProfile.YearToPeriod))
+                    Error(result, "PERIOD_POLICY_UNSUPPORTED", "Chính sách kỳ của batch không được hỗ trợ.");
+                else ParseFinanceExcel(stream, result, start, end, maxRows, periodMode, ct);
+            }
+            else if (profile != PoProfile.Code) Error(result, "PROFILE_UNSUPPORTED", "Profile chưa được hỗ trợ.");
+            else if (extension == ".csv") ParseCsv(stream, result, start, end, maxRows, ct);
             else if (extension is ".xlsx" or ".xls") ParseExcel(stream, extension, result, start, end, maxRows, ct);
             else Error(result, "FILE_TYPE_UNSUPPORTED", "Chỉ nhận .csv, .xlsx hoặc .xls đúng định dạng.");
         }
@@ -171,6 +179,7 @@ public sealed class PoFileParser
     private static string? CellText(object? value) => value switch
     {
         null or DBNull => null,
+        ExcelNumericCell number => number.Lexeme,
         DateTime date => date.ToString("yyyy-MM-ddTHH:mm:ss", Invariant),
         double d => d.ToString("0.############################", Invariant),
         float f => f.ToString("0.############################", Invariant),
@@ -179,12 +188,14 @@ public sealed class PoFileParser
     };
 
     private static void AddRow(ParsedPoFile result, object?[] values, string[] headers, int[] map,
-        string sheet, int record, DateOnly start, DateOnly end, HashSet<string> seen)
+        string sheet, int record, DateOnly start, DateOnly end, HashSet<string> seen,
+        PoCellDto[]? originalCells = null, bool finance = false, bool date1904 = false,
+        string periodMode = PoProfile.SelectedMonth)
     {
         var before = result.Issues.Count;
         void Issue(string severity, string code, int? index, string message) =>
             result.Issues.Add(new(severity, code, index is null ? null : PoProfile.Headers[index.Value], message, record, sheet));
-        var cells = values.Select((value, index) => new PoCellDto(index + 1,
+        var cells = originalCells ?? values.Select((value, index) => new PoCellDto(index + 1,
             index < headers.Length ? headers[index] : $"Extra {index + 1}", CellText(value),
             value?.GetType().Name ?? "Empty")).ToArray();
         if (values.Length != 17)
@@ -219,6 +230,16 @@ public sealed class PoFileParser
                 if (date.TimeOfDay != TimeSpan.Zero) Issue("WARNING", "DATE_TIME_PART", index, "Chỉ lấy phần ngày; nguồn có thêm giờ.");
                 return DateOnly.FromDateTime(date);
             }
+            if (finance && value is ExcelNumericCell serial)
+            {
+                if (!decimal.TryParse(serial.Lexeme, NumberStyles.Float, Invariant, out var days)
+                    || days < 0 || days > 2_900_000 || (!date1904 && days >= 60 && days < 61))
+                { Issue("ERROR", "INVALID_EXCEL_DATE", index, "Serial ngày Excel không hợp lệ."); return null; }
+                if (days != decimal.Truncate(days)) Issue("WARNING", "DATE_TIME_PART", index, "Chỉ lấy phần ngày; nguồn có thêm giờ.");
+                var day = (int)decimal.Truncate(days);
+                return date1904 ? new DateOnly(1904, 1, 1).AddDays(day)
+                    : new DateOnly(1899, 12, 31).AddDays(day >= 61 ? day - 1 : day);
+            }
             var text = Text(index, 40, required);
             if (text is null) return null;
             if (DateOnly.TryParseExact(text, "yyyy-MM-dd", Invariant, DateTimeStyles.None, out var parsed)) return parsed;
@@ -229,29 +250,36 @@ public sealed class PoFileParser
         {
             var text = Text(index, 100, required);
             if (text is null) return null;
+            if (finance && Value(index) is ExcelNumericCell) text = ExpandExcelNumber(text);
+            var precision = finance && (index is 5 or 12 or 15) ? 38 : 28;
             if (!Regex.IsMatch(text, "^[+-]?[0-9]+(?:\\.[0-9]+)?$"))
             { Issue("ERROR", "INVALID_NUMBER", index, "Dùng dấu chấm thập phân, không dấu phân cách hàng nghìn, không N/A hay ký hiệu tiền."); return null; }
             var parts = text.TrimStart('+', '-').Split('.');
             var digits = parts[0].TrimStart('0').Length;
             var fraction = parts.Length == 2 ? parts[1].TrimEnd('0').Length : 0;
-            if (digits > 28 - scale || fraction > scale || !decimal.TryParse(text,
+            if (digits > precision - scale || fraction > scale
+                || (finance && (parts[0] + (parts.Length == 2 ? parts[1] : "")).TrimStart('0').TrimEnd('0').Length > 28)
+                || !decimal.TryParse(text,
                 NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, Invariant, out var number))
-            { Issue("ERROR", "DECIMAL_PRECISION", index, $"Vượt decimal(28,{scale}); hệ thống không tự làm tròn."); return null; }
+            { Issue("ERROR", "DECIMAL_PRECISION", index, $"Vượt decimal({precision},{scale}) hoặc độ chính xác .NET decimal; hệ thống không tự làm tròn."); return null; }
             return number;
         }
         var line = new PoUpdateLine
         {
             SourceCodeText = Text(0, 100), ReceiptNumber = Text(1, 120, true, true),
             TransactionDate = Date(2, true), PoNumber = Text(3, 120, true, true),
-            ReceiptQuantity = Number(4, 6, true), PoUnitPrice = Number(5, 8),
+            ReceiptQuantity = Number(4, 6, true), PoUnitPrice = Number(5, finance ? 18 : 8),
             PoLineReference = Text(6, 50, identifier: true), PoCurrency = Text(7, 10, true)?.ToUpperInvariant(),
             PoRateDate = Date(8), PoRate = Number(9, 10), ReceiptRate = Number(10, 10),
-            ReceiptRateDate = Date(11), PurchaseFunctionalAmount = Number(12, 8),
+            ReceiptRateDate = Date(11), PurchaseFunctionalAmount = Number(12, finance ? 18 : 8),
             InvoiceNumber = Text(13, 200, identifier: true), InvoiceFunctionalAmount = Number(14, 8),
-            InvoiceAmount = Number(15, 8), LineDescription = Text(16, 2000)
+            InvoiceAmount = Number(15, finance ? 18 : 8), LineDescription = Text(16, 2000)
         };
-        if (line.TransactionDate is { } trx && (trx < start || trx >= end))
-            Issue("ERROR", "WRONG_PERIOD", 2, "Trx date nằm ngoài kỳ đã chọn. Mẫu DEV dùng dữ liệu riêng từng tháng.");
+        var coverageStart = finance && periodMode == PoProfile.YearToPeriod ? new DateOnly(start.Year, 1, 1) : start;
+        if (line.TransactionDate is { } trx && (trx < coverageStart || trx >= end))
+            Issue("ERROR", "WRONG_PERIOD", 2, $"Trx date phải từ {coverageStart:yyyy-MM-dd} đến trước {end:yyyy-MM-dd}; không tự bỏ dòng ngoài kỳ.");
+        if (finance && (line.InvoiceAmount is null || line.InvoiceFunctionalAmount is null))
+            Issue("WARNING", "INVOICE_AMOUNT_MISSING", null, "Thiếu tiền hóa đơn; giữ null, chưa coi là 0 hoặc đã đối chiếu xong.");
         if (line.PoCurrency is { } currency && !Regex.IsMatch(currency, "^[A-Z]{3}$"))
             Issue("ERROR", "CURRENCY_FORMAT", 7, "Tiền tệ gồm 3 chữ cái, ví dụ VND hoặc USD.");
         if (line.InvoiceNumber is null) Issue("WARNING", "INVOICE_MISSING", 13, "Chưa có số hóa đơn; giữ trống để bổ sung sau.");

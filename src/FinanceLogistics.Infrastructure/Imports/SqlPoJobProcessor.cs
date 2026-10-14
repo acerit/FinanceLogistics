@@ -33,8 +33,10 @@ public sealed partial class SqlPoJobProcessor(PoDatabase database, LocalPoFileSt
             var batch = await SqlPoImportService.BatchAsync(c, lease.BatchId, work.Token);
             using var options = JsonDocument.Parse(batch.Text("ParsingOptionsJson"));
             var settings = options.RootElement;
-            if (settings.GetProperty("profile").GetString() != PoProfile.Code)
-                throw new InvalidOperationException("Unsupported parser profile.");
+            var profile = settings.GetProperty("profile").GetString()!;
+            if (!PoProfile.IsKnown(profile)) throw new InvalidOperationException("Unsupported parser profile.");
+            var periodMode = settings.TryGetProperty("periodMode", out var mode) ? mode.GetString()! :
+                profile == PoProfile.Code ? PoProfile.SelectedMonth : throw new InvalidOperationException("Missing Finance period policy.");
             var start = DateOnly.ParseExact(settings.GetProperty("startDate").GetString()!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
             var end = DateOnly.ParseExact(settings.GetProperty("endDateExclusive").GetString()!, "yyyy-MM-dd", CultureInfo.InvariantCulture);
             var maxRows = settings.GetProperty("maxRows").GetInt32();
@@ -49,7 +51,7 @@ public sealed partial class SqlPoJobProcessor(PoDatabase database, LocalPoFileSt
             else
             {
                 stream.Position = 0;
-                parsed = await Task.Run(() => parser.Parse(stream, batch.Text("OriginalName"), start, end, maxRows, work.Token), work.Token);
+                parsed = await Task.Run(() => parser.Parse(stream, batch.Text("OriginalName"), start, end, maxRows, work.Token, profile, periodMode), work.Token);
             }
             work.Token.ThrowIfCancellationRequested();
             await SaveResultAsync(lease, parsed, work.Token);

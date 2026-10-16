@@ -21,6 +21,7 @@ public sealed class IdentityStore(IdentityDbContext db, TimeProvider clock) : II
         .Where(x => x.IsActive).OrderBy(x => x.SiteCode).Select(x => x.SiteCode).ToArrayAsync(ct);
 
     public Task<AuthSession?> FindSessionAsync(Guid id, CancellationToken ct) => db.Sessions.AsNoTracking()
+        .Include(x => x.ExternalIdentity)
         .Include(x => x.User).ThenInclude(x => x.DirectoryAccount)
         .Include(x => x.User).ThenInclude(x => x.Roles)
         .Include(x => x.User).ThenInclude(x => x.Sites)
@@ -34,7 +35,7 @@ public sealed class IdentityStore(IdentityDbContext db, TimeProvider clock) : II
             if (previous is not null) previous.RevokedAtUtc = clock.GetUtcNow().UtcDateTime;
         }
         db.Sessions.Add(session);
-        AddAudit(session.UserId, session.UserId, "LOGIN_SUCCESS", correlationId);
+        AddAudit(session.UserId, session.UserId, session.AuthenticationMethod == "SAML" ? "SAML_LOGIN_SUCCESS" : "LOGIN_SUCCESS", correlationId);
         // One SaveChanges transaction: new session, old-session revocation and audit.
         await db.SaveChangesAsync(ct);
     }

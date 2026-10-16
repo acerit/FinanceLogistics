@@ -15,7 +15,7 @@ public static class AccessRules
 
     public static UserProfile? Profile(AppUser user, string[] activeSites)
     {
-        if (!user.IsActive || user.DirectoryAccount is null) return null;
+        if (!user.IsActive) return null;
         var roles = user.Roles.Select(x => x.RoleCode).Where(KnownRoles.Contains).Distinct().Order().ToArray();
         if (roles.Length == 0) return null;
         var sites = roles.Contains(Finance) ? activeSites : user.Sites.Select(x => x.SiteCode)
@@ -28,7 +28,14 @@ public static class AccessRules
             permissions.UnionWith(["sources.read", "sources.upload", "sources.confirm"]);
         if (roles.Contains(SystemAdmin))
             permissions.UnionWith(["access.manage", "technical_settings.manage"]);
-        return new(user.UserId.ToString(CultureInfo.InvariantCulture), user.DirectoryAccount.SamAccountName,
+        var username = user.DirectoryAccount?.SamAccountName;
+
+        if (string.IsNullOrWhiteSpace(username))
+            username = user.Upn;
+
+        if (string.IsNullOrWhiteSpace(username))
+            username = user.UserId.ToString(CultureInfo.InvariantCulture);
+        return new(user.UserId.ToString(CultureInfo.InvariantCulture), username,
             user.Upn, user.DisplayName, roles, sites.Order().ToArray(), permissions.Order().ToArray());
     }
 

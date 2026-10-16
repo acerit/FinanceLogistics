@@ -63,6 +63,9 @@ public sealed class AuthSession
     public DateTime ExpiresAtUtc { get; set; }
     public DateTime? RevokedAtUtc { get; set; }
     public AppUser User { get; set; } = null!;
+    public string AuthenticationMethod { get; set; } = "LDAP";
+    public long? ExternalIdentityId { get; set; }
+    public ExternalIdentity? ExternalIdentity { get; set; }
 }
 
 public sealed class IdentityAudit
@@ -96,4 +99,36 @@ public sealed class SourceScope
 {
     public string SourceCode { get; set; } = "";
     public string ScopeCode { get; set; } = "";
+}
+public sealed class ExternalIdentity
+{
+    public long ExternalIdentityId { get; set; }
+
+    public string ProviderKey { get; set; } = "";
+    public Guid TenantId { get; set; }
+    public Guid ObjectId { get; set; }
+
+    public long UserId { get; set; }
+    public bool IsActive { get; set; } = true;
+
+    public DateTime CreatedAtUtc { get; set; }
+    public long CreatedByUserId { get; set; }
+}
+
+public sealed class SamlLoginRequest
+{
+    public string RequestId { get; set; } = "";
+    public byte[] BrowserSecretHash { get; set; } = [];
+
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime ExpiresAtUtc { get; set; }
+    public DateTime? ConsumedAtUtc { get; set; }
+
+    public Guid? PreviousSessionId { get; set; }
+}
+
+public sealed class SamlReplayProof
+{
+    public byte[] ProofHash { get; set; } = [];
+    public DateTime ExpiresAtUtc { get; set; }
 }

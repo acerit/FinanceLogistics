@@ -13,6 +13,9 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<SourceType> Sources => Set<SourceType>();
     public DbSet<SourceScope> SourceScopes => Set<SourceScope>();
     public DbSet<ScopeSite> ScopeSites => Set<ScopeSite>();
+    public DbSet<ExternalIdentity> ExternalIdentities => Set<ExternalIdentity>();
+    public DbSet<SamlLoginRequest> SamlLoginRequests => Set<SamlLoginRequest>();
+    public DbSet<SamlReplayProof> SamlReplayProofs => Set<SamlReplayProof>();             
 
     protected override void OnModelCreating(ModelBuilder m)
     {
@@ -67,6 +70,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             e.Property(x => x.ExpiresAtUtc).HasPrecision(3);
             e.Property(x => x.RevokedAtUtc).HasPrecision(3);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction);
+            e.Property(x => x.AuthenticationMethod).HasMaxLength(8).IsUnicode(false).HasDefaultValue("LDAP");
+            e.HasOne(x => x.ExternalIdentity).WithMany().HasForeignKey(x => x.ExternalIdentityId).OnDelete(DeleteBehavior.NoAction);
         });
         m.Entity<IdentityAudit>(e => {
             e.ToTable("IdentityAudit", "sec"); e.HasKey(x => x.EventId);
@@ -94,6 +99,31 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             e.ToTable("SourceScope", "cfg"); e.HasKey(x => new { x.SourceCode, x.ScopeCode });
             e.Property(x => x.SourceCode).HasMaxLength(40).IsUnicode(false);
             e.Property(x => x.ScopeCode).HasMaxLength(40).IsUnicode(false);
+        });
+        m.Entity<ExternalIdentity>(e => {
+            e.ToTable("ExternalIdentity", "sec"); e.HasKey(x => x.ExternalIdentityId);
+            e.Property(x => x.ProviderKey).HasMaxLength(40).IsUnicode(false);
+            e.Property(x => x.CreatedAtUtc).HasPrecision(3);
+            e.HasIndex(x => new { x.ProviderKey, x.TenantId, x.ObjectId }).IsUnique();
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne<AppUser>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.NoAction);
+        });
+        m.Entity<SamlLoginRequest>(e =>
+        {
+            e.ToTable("SamlLoginRequest", "sec");
+            e.HasKey(x => x.RequestId);
+            e.Property(x => x.RequestId).HasMaxLength(128).IsUnicode(false).UseCollation("Latin1_General_100_BIN2");
+            e.Property(x => x.BrowserSecretHash).HasColumnType("binary(32)");
+            e.Property(x => x.CreatedAtUtc).HasPrecision(3);
+            e.Property(x => x.ExpiresAtUtc).HasPrecision(3);
+            e.Property(x => x.ConsumedAtUtc).HasPrecision(3);
+        });
+        m.Entity<SamlReplayProof>(e =>
+        {
+            e.ToTable("SamlReplayProof", "sec");
+            e.HasKey(x => x.ProofHash);
+            e.Property(x => x.ProofHash).HasColumnType("binary(32)");
+            e.Property(x => x.ExpiresAtUtc).HasPrecision(3);
         });
     }
 }

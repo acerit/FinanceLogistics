@@ -22,6 +22,23 @@ if (!OperatingSystem.IsWindows())
 
 var settings = builder.Configuration.GetSection("Identity").Get<IdentitySettings>() ?? new();
 settings.Validate();
+if (settings.AuthenticationMode == "SamlPilot" &&
+    !builder.Environment.IsDevelopment() &&
+    !builder.Environment.IsStaging() &&
+    !builder.Environment.IsEnvironment("UAT"))
+{
+    throw new InvalidOperationException(
+        "SamlPilot is allowed only in Development, Staging or UAT.");
+}
+
+if (settings.SamlEnabled &&
+    Environment.Version < new Version(10, 0, 13))
+{
+    throw new InvalidOperationException(
+        "Update to .NET runtime 10.0.13 or newer before enabling SAML.");
+}
+builder.Services.AddSingleton<SamlProtocol>();
+builder.Services.AddScoped<SamlSignInService>();
 var connection = builder.Configuration.GetConnectionString("FinanceLogistics");
 if (string.IsNullOrWhiteSpace(connection)) throw new InvalidOperationException("Configure the FinanceLogistics connection string.");
 var keyPath = Path.GetFullPath(settings.KeyRingPath);
@@ -118,6 +135,8 @@ builder.Services.AddRateLimiter(o => {
 });
 
 var app = builder.Build();
+if (settings.SamlEnabled)
+    app.Services.GetRequiredService<SamlProtocol>().CheckReady();
 app.UseMiddleware<ApiEnvelopeMiddleware>();
 if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.UseHttpsRedirection();

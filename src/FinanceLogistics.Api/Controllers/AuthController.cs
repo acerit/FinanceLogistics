@@ -44,6 +44,7 @@ public sealed class AuthController(AuthService auth, IAntiforgery antiforgery) :
     {
         await auth.LogoutAsync(Request.Cookies[SessionSecrets.CookieName], HttpContext.TraceIdentifier, ct);
         ClearCookie();
+        SamlBrowserState.Clear(Response);
         return NoContent();
     }
 

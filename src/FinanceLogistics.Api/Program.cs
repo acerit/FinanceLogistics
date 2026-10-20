@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using FinanceLogistics.Infrastructure.Periods;
+using FinanceLogistics.Infrastructure.FinanceSources;
 
 var builder = WebApplication.CreateBuilder(args);
 if (!OperatingSystem.IsWindows())
@@ -56,6 +57,7 @@ builder.Services.AddPoPeriodQueries(connection);
 builder.Services.AddPoImports(connection,
     builder.Configuration["PoImport:StorageRoot"]
     ?? throw new InvalidOperationException("Configure PoImport:StorageRoot before starting the API."));
+builder.Services.AddFinanceSourceImports();
 builder.Services.AddScoped<IIdentityStore, IdentityStore>();
 builder.Services.AddScoped<IAdAuthenticator, AdAuthenticator>();
 builder.Services.AddScoped<AuthService>();

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nộp Finance · Finance Logistics</title>
+  <link rel="stylesheet" href="/po-upload.css">
+</head>
+<body>
+<header><div><span class="eyebrow">FINANCE · LOGISTICS</span><h1 id="sourceTitle">Nộp dữ liệu Finance</h1></div>
+  <nav><a href="/po-upload.html">Nguồn PO</a><a href="/index.html">Trang chính</a><button id="logout" type="button">Đăng xuất</button></nav>
+</header>
+<main>
+  <p class="intro">Chọn tháng, gửi file và kiểm tra kết quả. Bản đang dùng chỉ thay đổi khi bạn bấm <strong>Xác nhận sử dụng</strong>.</p>
+  <div id="message" role="status" aria-live="polite"></div>
+  <section class="card" aria-labelledby="periodTitle">
+    <h2 id="periodTitle">1. Chọn nguồn và kỳ nộp</h2><label>Nguồn Finance<select id="source"></select></label>
+    <div class="form-grid"><label>Tháng<select id="period" disabled></select></label>
+      <div><span class="label">Bản đang dùng</span><p id="active">Đang tải…</p></div>
+      <div><span class="label">Trạng thái kỳ</span><p id="periodStatus">—</p></div></div>
+    <p id="deadline" class="muted"></p>
+  </section>
+  <section class="card" aria-labelledby="uploadTitle">
+    <h2 id="uploadTitle">2. Gửi file gốc của nguồn đã chọn</h2>
+    <form id="uploadForm">
+      <div class="form-grid"><label>Mẫu nhập<select id="template" required></select></label>
+        <label>File dữ liệu<input id="file" type="file" accept=".xlsx" required></label></div>
+      <p id="templateHint" class="muted"></p>
+      <div class="actions"><button id="upload" type="submit" class="primary" disabled>Gửi và kiểm tra</button>
+</div>
+    </form>
+  </section>
+  <section class="card" aria-labelledby="previewTitle">
+    <div class="section-head"><h2 id="previewTitle">3. Xem và xác nhận</h2><button id="refresh" disabled>Lấy lại preview</button></div>
+    <p id="batchSummary">Chưa chọn lần nộp.</p>
+    <p id="counts" class="muted"></p>
+    <p id="coverage" class="muted"></p>
+    <div class="actions"><button id="original" disabled>Tải file gốc</button><button id="retry" hidden>Thử lại xử lý</button>
+      <label class="check"><input id="rawToggle" type="checkbox"> Xem ô gốc, công thức và cache</label></div>
+    <div id="previewTable" class="table-wrap" tabindex="0" aria-label="Dữ liệu xem trước"></div>
+    <div class="pager"><button id="rowsPrevious" disabled>Trang trước</button><span id="rowsPage"></span><button id="rowsNext" disabled>Trang sau</button></div>
+    <h3>Lỗi và cảnh báo</h3><div id="issueSummary" class="table-wrap"></div><label>Lọc theo nhóm<select id="issueCode"><option value="">Tất cả</option></select></label><div id="issuesTable" class="table-wrap"></div>
+    <div class="pager"><button id="issuesPrevious" disabled>Trang trước</button><span id="issuesPage"></span><button id="issuesNext" disabled>Trang sau</button></div>
+    <div class="confirm-box"><label class="check"><input id="warnings" type="checkbox" disabled> Tôi đã xem và chấp nhận các cảnh báo của bản này.</label>
+      <button id="confirm" class="primary" disabled>Xác nhận sử dụng</button><p id="confirmHint" class="muted">File chưa được xác nhận sẽ chưa dùng để lập báo cáo.</p></div>
+  </section>
+  <section class="card" aria-labelledby="historyTitle">
+    <div class="section-head"><h2 id="historyTitle">4. Lịch sử nộp</h2><button id="historyRefresh">Tải lại lịch sử</button></div>
+    <div id="historyTable" class="table-wrap"></div>
+    <div class="pager"><button id="historyPrevious" disabled>Trang trước</button><span id="historyPage"></span><button id="historyNext" disabled>Trang sau</button></div>
+  </section>
+</main>
+<footer>Bốn nguồn Finance · Đọc, kiểm tra và giữ phiên bản · Báo cáo PO_receipt được triển khai ở bước mapping.</footer>
+<script type="module" src="/js/finance-upload.mjs"></script>
+</body></html>

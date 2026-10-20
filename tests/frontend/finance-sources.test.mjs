@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { canConfirm, needsPolling, previewCells, templatePresentation, coverageLabel } from '../../src/FinanceLogistics.Api/wwwroot/js/finance-ui-rules.mjs';
+const ready={status:'READY',periodStatus:'OPEN',totalRows:2,errorCount:0,warningCount:0,jobStatus:'SUCCEEDED'};
+test('bản chưa READY hoặc job chưa xong không được xác nhận',()=>{assert.equal(canConfirm({...ready,status:'RECEIVED'},false),false);assert.equal(canConfirm({...ready,jobStatus:'RUNNING'},false),false);});
+test('cảnh báo cần chấp nhận rõ, preview cũ bị khóa',()=>{assert.equal(canConfirm({...ready,warningCount:1},false),false);assert.equal(canConfirm({...ready,warningCount:1},true),true);assert.equal(canConfirm(ready,true,true),false);});
+test('file rỗng/kỳ đã khóa không được thay bản đang dùng',()=>{assert.equal(canConfirm({...ready,totalRows:0},true),false);assert.equal(canConfirm({...ready,periodStatus:'CLOSED'},true),false);});
+test('subtotal và footer không tự hiển thị như giao dịch chuẩn',()=>{assert.deepEqual(previewCells({rowKind:'SUBTOTAL',normalizedCells:null},['Amount']),[null]);});
+test('dòng lỗi vẫn cho biết chưa chuẩn hóa',()=>{assert.deepEqual(previewCells({rowKind:'DATA',normalizedCells:null},['Amount']),['Chưa chuẩn hóa']);});
+test('giá trị tiền dạng chuỗi không bị JS làm tròn',()=>{assert.deepEqual(previewCells({rowKind:'DATA',normalizedCells:['0.30000000000000004']},['Amount']),['0.30000000000000004']);});
+test('bốn profile thật chỉ nhận XLSX, không tạo CSV giả mẫu Oracle',()=>{for(const profile of ['AP_ORACLE_XXAPR017_V1','PAYMENT_ORACLE_XXAPR015_V1','EX_VND_WORKBOOK_V1','EX_USD_WORKBOOK_V1']){const p=templatePresentation({profile,versionNo:940001});assert.equal(p.accept,'.xlsx');assert.equal(p.allowCsvDownload,false);}});
+test('nhãn phạm vi không khẳng định đã đủ dữ liệu',()=>{assert.match(coverageLabel({periodMode:'EXPLICIT_RANGE',coverageStart:'2026-01-01',coverageEnd:'2026-08-28'}),/chưa phải xác nhận đủ dữ liệu/);});
+test('job lỗi kỹ thuật dừng polling để người dùng sửa nguyên nhân',()=>{assert.equal(needsPolling({status:'VALIDATING',jobStatus:'FAILED'}),false);});

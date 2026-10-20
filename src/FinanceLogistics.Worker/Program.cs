@@ -1,5 +1,6 @@
 using FinanceLogistics.Application.Imports;
 using FinanceLogistics.Infrastructure.Imports;
+using FinanceLogistics.Infrastructure.FinanceSources;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -12,6 +13,8 @@ var connection = builder.Configuration.GetConnectionString("FinanceLogistics")
 var storage = builder.Configuration["PoImport:StorageRoot"]
     ?? throw new InvalidOperationException("Missing PoImport:StorageRoot. API and Worker must use the SAME private directory.");
 builder.Services.AddPoImports(connection, storage);
+builder.Services.AddFinanceSourceImports();
+builder.Services.AddHostedService<FinanceLogistics.Worker.FinanceSourceQueueWorker>();
 builder.Services.AddHostedService<PoQueueWorker>();
 await builder.Build().RunAsync();
 

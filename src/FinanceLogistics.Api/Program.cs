@@ -16,6 +16,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using FinanceLogistics.Infrastructure.Periods;
 using FinanceLogistics.Infrastructure.FinanceSources;
+using FinanceLogistics.Infrastructure.LogisticsNk;
 
 var builder = WebApplication.CreateBuilder(args);
 if (!OperatingSystem.IsWindows())
@@ -57,6 +58,7 @@ builder.Services.AddPoPeriodQueries(connection);
 builder.Services.AddPoImports(connection,
     builder.Configuration["PoImport:StorageRoot"]
     ?? throw new InvalidOperationException("Configure PoImport:StorageRoot before starting the API."));
+builder.Services.AddNkSourceImports();
 builder.Services.AddFinanceSourceImports();
 builder.Services.AddScoped<IIdentityStore, IdentityStore>();
 builder.Services.AddScoped<IAdAuthenticator, AdAuthenticator>();
@@ -136,6 +138,7 @@ builder.Services.AddRateLimiter(o => {
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
+FinanceLogistics.Infrastructure.LogisticsTrade.TradeSourceRegistration.AddTradeSourceImports(builder.Services);
 var app = builder.Build();
 if (settings.SamlEnabled)
     app.Services.GetRequiredService<SamlProtocol>().CheckReady();

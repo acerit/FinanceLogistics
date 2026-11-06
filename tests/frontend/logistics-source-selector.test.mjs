@@ -1,0 +1,11 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {sourceChoices,resolveSource,sourceLabel,splitSource} from '../../src/FinanceLogistics.Api/wwwroot/js/logistics-source-selector.mjs';
+const all=['OTHER_IMPORT_1000','OTHER_IMPORT_6000','OTHER_EXPORT_1000','OTHER_EXPORT_6000','XK_1000','XK_6000','PIN_TEST_1000'].map(sourceCode=>({sourceCode}));
+test('OTHER common layout retains two identities',()=>assert.deepEqual(sourceChoices(all,'OTHER_IMPORT').map(x=>x.sourceCode),['OTHER_IMPORT_1000','OTHER_IMPORT_6000']));
+test('explicit requested site retained',()=>assert.equal(resolveSource(all,'OTHER_EXPORT','1000'),'OTHER_EXPORT_1000'));
+test('1000 user cannot select 6000',()=>assert.throws(()=>resolveSource(all.filter(x=>x.sourceCode.endsWith('_1000')),'OTHER_IMPORT','6000')));
+test('missing 1000 never falls back to 6000',()=>assert.throws(()=>resolveSource(all.filter(x=>x.sourceCode!=='OTHER_IMPORT_1000'),'OTHER_IMPORT','1000')));
+test('Pin has no site6000',()=>assert.throws(()=>resolveSource(all,'PIN_TEST','6000')));
+test('unknown sources not offered',()=>assert.deepEqual(sourceChoices([{sourceCode:'XK_9999'}],'XK'),[]));
+test('label shows site',()=>assert.equal(sourceLabel('OTHER_EXPORT_1000'),'OTHER Xuất · Site 1000'));
+test('parse source kind correctly',()=>assert.deepEqual(splitSource('OTHER_IMPORT_6000'),{kind:'OTHER_IMPORT',site:'6000'}));

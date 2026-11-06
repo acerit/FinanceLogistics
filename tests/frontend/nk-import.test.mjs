@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {canConfirm,needsPolling,previewCells,templatePresentation,coverageLabel} from '../../src/FinanceLogistics.Api/wwwroot/js/nk-ui-rules.mjs';
+const ready={status:'READY',jobStatus:'SUCCEEDED',periodStatus:'OPEN',errorCount:0,warningCount:1,totalRows:2,isCurrent:false};
+test('warnings require acknowledgement',()=>assert.equal(canConfirm(ready,false,false),false));
+test('reviewed READY can be confirmed',()=>assert.equal(canConfirm(ready,true,false),true));
+test('stale preview blocks confirm',()=>assert.equal(canConfirm(ready,true,true),false));
+test('INVALID blocks confirm even with acknowledgement',()=>assert.equal(canConfirm({...ready,status:'INVALID',errorCount:1},true,false),false));
+test('CLOSED blocks new confirm',()=>assert.equal(canConfirm({...ready,periodStatus:'CLOSED'},true,false),false));
+test('invalid raw row is not rendered as zero',()=>assert.deepEqual(previewCells({rowKind:'DATA',normalizedCells:null},['Trx Date','Amount']),['Chưa chuẩn hóa','Chưa chuẩn hóa']));
+test('zero stays zero and null stays null',()=>assert.deepEqual(previewCells({rowKind:'DATA',normalizedCells:['0',null]},['Amount','Invoice']),['0',null]));
+test('XLSX only',()=>assert.equal(templatePresentation({profile:'NK_1000_WORKBOOK_V1',versionNo:950001}).accept,'.xlsx'));
+test('QUEUED worker polls',()=>assert.equal(needsPolling({status:'RECEIVED',jobStatus:'QUEUED'}),true));
+test('coverage label does not assert completeness',()=>assert.match(coverageLabel({coverageStart:'2026-01-01',coverageEnd:'2026-08-28',periodMode:'EXPLICIT_RANGE'}),/chưa phải xác nhận đủ/));

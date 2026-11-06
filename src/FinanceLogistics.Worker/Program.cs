@@ -5,6 +5,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using FinanceLogistics.Infrastructure.LogisticsNk;
+using FinanceLogistics.Worker;
 
 var builder = Host.CreateApplicationBuilder(args);
 if (builder.Environment.IsDevelopment()) builder.Configuration.AddUserSecrets<Program>(optional: true);
@@ -16,6 +18,10 @@ builder.Services.AddPoImports(connection, storage);
 builder.Services.AddFinanceSourceImports();
 builder.Services.AddHostedService<FinanceLogistics.Worker.FinanceSourceQueueWorker>();
 builder.Services.AddHostedService<PoQueueWorker>();
+builder.Services.AddNkSourceImports();
+builder.Services.AddHostedService<NkSourceQueueWorker>();
+FinanceLogistics.Infrastructure.LogisticsTrade.TradeSourceRegistration.AddTradeSourceImports(builder.Services);
+builder.Services.AddHostedService<FinanceLogistics.Worker.TradeSourceQueueWorker>();
 await builder.Build().RunAsync();
 
 internal sealed class PoQueueWorker(IServiceScopeFactory scopes, ILogger<PoQueueWorker> logger) : BackgroundService

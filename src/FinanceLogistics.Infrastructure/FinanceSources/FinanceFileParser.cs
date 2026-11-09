@@ -73,9 +73,21 @@ public sealed class FinanceFileParser
                     if(cell?.Raw.Formula is not null)
                     {
                         if(!cell.FormulaSupported){E("FORMULA_UNSUPPORTED","Công thức shared/array chưa được hỗ trợ hoặc nhóm gốc không hợp lệ.");values[f.Property]=null;continue;}
-                        if(cell.Raw.CachedValue is null||string.IsNullOrEmpty(text)){E("FORMULA_CACHE_MISSING","Công thức thiếu kết quả lưu; tính và lưu lại trong Excel rồi nộp bản mới.");values[f.Property]=null;continue;}
                         var literal=FinanceXlsxReader.Literal(cell.EffectiveFormula??"");
-                        if(literal is not null&&f.Kind is FinanceFieldKind.Text or FinanceFieldKind.Identifier or FinanceFieldKind.Currency)
+                        bool isRa=p.SourceCode=="RECEIPT_APPLICATION";
+                        // Oracle emits ="" in optional RA reference columns with an empty
+                        // <v> (or no cached text). This is a known *literal empty string*,
+                        // not an uncalculated amount/date formula. Preserve the formula in raw.
+                        if(isRa && literal=="" && type=="str"
+                            && (f.Property is "ReferenceNumber" or "ChargebackAdjustmentNumber")
+                            && string.IsNullOrEmpty(text) && string.IsNullOrEmpty(cell.Raw.CachedValue))
+                        {values[f.Property]=null;literals++;continue;}
+                        if(cell.Raw.CachedValue is null||string.IsNullOrEmpty(text)){E("FORMULA_CACHE_MISSING","Công thức thiếu kết quả lưu; tính và lưu lại trong Excel rồi nộp bản mới.");values[f.Property]=null;continue;}
+                        // RA uses a quoted string for an Oracle invoice date and a quoted
+                        // number for days late; verify the cached string byte-for-byte.
+                        // Never execute arbitrary formulas or loosen other Finance profiles.
+                        bool raTypedLiteral=isRa && (f.Property is "InvoiceDate" or "DaysLate");
+                        if(literal is not null && ((f.Kind is FinanceFieldKind.Text or FinanceFieldKind.Identifier or FinanceFieldKind.Currency) || raTypedLiteral))
                         {
                             if(type!="str"||literal!=text){E("FORMULA_CACHE_MISMATCH","Kết quả lưu khác chuỗi gốc trong công thức.");values[f.Property]=null;continue;}
                             text=literal;literals++;
@@ -96,8 +108,14 @@ public sealed class FinanceFileParser
                             else values[f.Property]=number;
                             break;
                         case FinanceFieldKind.Date:
-                            if(!TryDate(text,type!,book.Date1904,out var date,out var hasTime)){E("INVALID_DATE","Ngày phải là ô Date/serial Excel, yyyy-MM-dd hoặc dd/MM/yyyy. Không đoán MM/dd/yyyy.");values[f.Property]=null;}
-                            else {values[f.Property]=date;if(hasTime)W("DATE_TIME_PART","Nguồn có giờ; cột dữ liệu chuẩn giữ phần ngày.");}
+                            DateOnly date;
+                            bool hasTime = false;
+                            if (p.SourceCode == "RECEIPT_APPLICATION" && f.Property == "InvoiceDate"
+                                && TryRaInvoiceDate(text, out var raInvoiceDate))
+                            { values[f.Property] = raInvoiceDate; }
+                            else if (!TryDate(text,type!,book.Date1904,out date,out hasTime))
+                            { E("INVALID_DATE","Ngày RA chấp nhận dd-MMM-yy tiếng Anh; các nguồn khác giữ quy tắc Date/serial, yyyy-MM-dd, dd/MM/yyyy.");values[f.Property]=null; }
+                            else { values[f.Property]=date; if(hasTime)W("DATE_TIME_PART","Nguồn có giờ; cột dữ liệu chuẩn giữ phần ngày."); }
                             break;
                         default:
                             var normalized=text.Trim();
@@ -174,6 +192,20 @@ public sealed class FinanceFileParser
         var exact=Exact(text);if(exact is null||!decimal.TryParse(text,NumberStyles.AllowLeadingSign|NumberStyles.AllowDecimalPoint,Inv,out number))return false;
         var actual=Exact(number.ToString(Inv))!.Value;
         return exact.Value.Item1*BigInteger.Pow(10,actual.Item2)==actual.Item1*BigInteger.Pow(10,exact.Value.Item2);
+    }
+    // Strictly for the Oracle RA Invoice date (e.g. 07-APR-26).
+    // Do not infer locale from Windows system settings or change other Finance sources.
+    private static bool TryRaInvoiceDate(string text,out DateOnly date)
+    {
+        date=default;
+        var m=Regex.Match(text.Trim(),@"^([0-9]{2})-([A-Za-z]{3})-([0-9]{2})$");
+        if(!m.Success)return false;
+        var month=Array.FindIndex(new[]{"JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"},
+            x=>x==m.Groups[2].Value.ToUpperInvariant())+1;
+        if(month==0)return false;
+        // XXARR019 file uses two-digit 20xx years; reject outside policy coverage later.
+        var year=2000+int.Parse(m.Groups[3].Value,Inv);
+        return DateOnly.TryParseExact($"{year:0000}-{month:00}-{m.Groups[1].Value}","yyyy-MM-dd",Inv,DateTimeStyles.None,out date);
     }
     private static bool TryDate(string text,string type,bool date1904,out DateOnly date,out bool hasTime)
     {

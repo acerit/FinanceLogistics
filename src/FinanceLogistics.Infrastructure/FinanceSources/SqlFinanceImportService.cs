@@ -62,7 +62,7 @@ public sealed partial class SqlFinanceImportService(PoDatabase database, LocalPo
         if (string.IsNullOrWhiteSpace(originalName) || originalName.Length > 260 || originalName.Any(char.IsControl))
             throw new PoImportFault(400, "INVALID_FILE_NAME", "Tên file không hợp lệ hoặc dài hơn 260 ký tự.");
         var extension = Path.GetExtension(originalName).ToLowerInvariant();
-        if (extension != ".xlsx") throw new PoImportFault(400,"PROFILE_REQUIRES_XLSX","Bốn mẫu Finance này chỉ nhận XLSX nguyên bản đã kiểm tra.");
+        if (extension != ".xlsx") throw new PoImportFault(400,"PROFILE_REQUIRES_XLSX","Các mẫu Finance hiện tại chỉ nhận XLSX nguyên bản đã kiểm tra.");
         var media="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
         await using var c = await database.OpenAsync(ct);
         await FinanceSourceSql.RequireFinanceAsync(c, null, command.ActorId, definition.SourceCode, ct);

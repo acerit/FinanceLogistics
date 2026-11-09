@@ -84,9 +84,17 @@ internal static class FinanceXlsxReader
         foreach(var (r,cells) in xmlRows)foreach(var (col,cell) in cells)
         {
             var f=cell.Element(S+"f");if(f is null||(string?)f.Attribute("t")!="shared"||string.IsNullOrEmpty(f.Value))continue;
-            var id=(string?)f.Attribute("si");var range=Regex.Match((string?)f.Attribute("ref")??"",@"^([A-Z]+)([1-9][0-9]*):([A-Z]+)([1-9][0-9]*)$");
+            // Oracle RA can emit a single-cell shared literal formula with ref="J50"
+            // rather than a range like "J50:J50". Accept exactly the anchored cell
+            // or a same-column range; do not expand arbitrary/shared calculations.
+            var id=(string?)f.Attribute("si");
+            var range=Regex.Match((string?)f.Attribute("ref")??"",@"^([A-Z]+)([1-9][0-9]*)(?::([A-Z]+)([1-9][0-9]*))?$");
             if(id is null||!Regex.IsMatch(id,@"^[0-9]{1,9}$")||!range.Success||Literal(f.Value) is null||f.Attributes().Any(x=>x.Name.LocalName is not ("t" or "si" or "ref"))
-                ||range.Groups[1].Value!=Label(col)||range.Groups[3].Value!=Label(col)||!int.TryParse(range.Groups[2].Value,out var first)||!int.TryParse(range.Groups[4].Value,out var last)
+                ||range.Groups[1].Value!=Label(col)
+                ||(!range.Groups[3].Success&&profile.SourceCode!="RECEIPT_APPLICATION")
+                ||(range.Groups[3].Success&&range.Groups[3].Value!=Label(col))
+                ||!int.TryParse(range.Groups[2].Value,out var first)
+                ||!int.TryParse(range.Groups[4].Success?range.Groups[4].Value:range.Groups[2].Value,out var last)
                 ||first!=r||last<first||last>1048576)continue;
             if(!groups.TryAdd(id,new(f.Value,col,first,last,Label(col)+r)))throw new InvalidDataException("Repeated shared formula group.");
         }

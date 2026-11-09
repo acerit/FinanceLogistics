@@ -2,7 +2,13 @@ import { createIdentityClient } from './api-client.mjs';
 import { canConfirm, needsPolling, previewCells, templatePresentation, coverageLabel } from './finance-ui-rules.mjs';
 const api = createIdentityClient();
 const $ = id => document.getElementById(id);
-const sources={AP_REPORT:'AP · XXAPR017 Invoice Detail Report',SUPPLIER_PAYMENT_REGISTER:'Supplier · XXAPR015 Payment Register',EX_VND:'Chứng từ VND',EX_USD:'Chứng từ USD'};
+const sources={
+  AP_REPORT:'AP · Invoice Detail Report',
+  SUPPLIER_PAYMENT_REGISTER:'Supplier · Payment Register',
+  EX_VND:'Chứng từ thanh toán VND',
+  EX_USD:'Chứng từ thanh toán USD',
+  RECEIPT_APPLICATION:'RA · Receipt Application Register'
+};
 const requested=new URL(location.href).searchParams.get('source')||'AP_REPORT';
 const sourceCode=Object.hasOwn(sources,requested)?requested:'AP_REPORT';
 const base=`/api/finance/${sourceCode}`;

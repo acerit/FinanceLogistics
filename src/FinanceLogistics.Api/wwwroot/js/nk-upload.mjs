@@ -15,14 +15,17 @@ const labels = { RECEIVED: 'Đã nhận file', VALIDATING: 'Đang kiểm tra', R
 function message(text, kind = '') { $('message').textContent = text; $('message').className = kind; }
 function stopPolling() { clearTimeout(timer); }
 function selectedTemplate() { return templates.find(t => t.templateVersionId === $('template').value); }
+function permittedProfile(profile) {
+  return sourceCode === 'NK_1000' ? profile === 'NK_1000_HEADER1_44_V5' : profile === 'NK_6000_HEADER1_V4';
+}
 function drawTemplate() {
   const view = templatePresentation(selectedTemplate());
   $('templateHint').textContent = view.hint;
   $('file').accept = view.accept;
-  $('downloadTemplate').disabled = busy || !selectedTemplate()?.profile?.endsWith('_HEADER1_V4');
+  $('downloadTemplate').disabled = busy || !permittedProfile(selectedTemplate()?.profile);
 }
 function controls() {
-  $('downloadTemplate').disabled = busy || !selectedTemplate()?.profile?.endsWith('_HEADER1_V4');
+  $('downloadTemplate').disabled = busy || !permittedProfile(selectedTemplate()?.profile);
   $('upload').disabled = busy || !policyReady || !requirement || requirement.periodStatus !== 'OPEN' || !templates.length;
   $('source').disabled=busy; $('period').disabled = busy; $('template').disabled = busy; $('file').disabled = busy;
   $('confirm').disabled = busy || !canConfirm(batch, $('warnings').checked, stale);
@@ -181,7 +184,7 @@ function saveBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 $('downloadTemplate').addEventListener('click',()=>action(async()=>{
-  const t=selectedTemplate();if(!t||busy||!t.profile?.endsWith('_HEADER1_V4'))return;
+  const t=selectedTemplate();if(!t||busy||!permittedProfile(t.profile))return;
   saveBlob(await api.download(`${base}/templates/${encodeURIComponent(t.templateVersionId)}/file`),`${sourceCode}_template_${t.versionNo}.xlsx`);
 }));
 $('uploadForm').addEventListener('submit', event => { event.preventDefault(); action(async () => {
@@ -247,8 +250,8 @@ await action(async () => {
   $('source').value=sourceCode;$('sourceTitle').textContent=sourceLabels[sourceCode];
   [requirements, templates] = await Promise.all([api.request(`${base}/periods`), api.request(`${base}/templates`)]);
   $('period').replaceChildren(...requirements.map(p => new Option(p.periodCode, p.periodId)));
-  // V1-V3 remain readable as historical batches; only V4 can receive new files.
-  templates = templates.filter(t=>t.profile?.endsWith('_HEADER1_V4'));
+  // Historical profiles remain readable; new NK_1000 requires 44-column V5, NK_6000 remains V4.
+  templates = templates.filter(t=>permittedProfile(t.profile));
   templates.sort((a,b)=>Number(b.versionNo)-Number(a.versionNo));
   $('template').replaceChildren(...templates.map(t => new Option(templatePresentation(t).label, t.templateVersionId)));
   drawTemplate();

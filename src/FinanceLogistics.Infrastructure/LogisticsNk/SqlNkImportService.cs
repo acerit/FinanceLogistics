@@ -51,7 +51,8 @@ public sealed partial class SqlNkImportService(PoDatabase database, LocalPoFileS
             """, null, ("@source", definition.SourceCode), ("@scope", definition.ScopeCode));
         return (await cmd.RowsAsync(ct)).Where(x => Supports(x.Text("DefinitionJson")))
             .Select(x => new PoTemplateDto(PoProfile.Id(x.Long("TemplateVersionId")), x.Int("VersionNo"),
-                PoProfile.ProfileCode(x.Text("DefinitionJson")), definition.Headers)).ToArray();
+                PoProfile.ProfileCode(x.Text("DefinitionJson")),
+                NkSourcePolicy.TemplateProfile(definition.SourceCode, x.Text("DefinitionJson")).Headers)).ToArray();
     }
 
     public async Task<UploadPoResult> UploadAsync(UploadPoCommand command, Stream content, CancellationToken ct)

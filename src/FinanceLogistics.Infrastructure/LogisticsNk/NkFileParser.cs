@@ -19,6 +19,14 @@ public sealed class ParsedNkFile
 public sealed class NkFileParser
 {
     private static readonly CultureInfo Inv=CultureInfo.InvariantCulture;
+    // Oracle/Logistics source convention: only the nullable EEC/COC date cells
+    // listed below may contain N in the NK_1000 44-column V5 input contract.
+    // Preserve N in raw; a typed date cannot encode its business meaning.
+    private static readonly HashSet<string> V5CertificateDateFields = new(StringComparer.Ordinal)
+    {
+        "EecDate", "EecInvoiceDate", "EecPaymentDate",
+        "CocDate", "CocExpiryDate", "CocInvoiceDate", "CocPaymentDate"
+    };
     public ParsedNkFile Parse(Stream stream,string fileName,string sourceCode,NkParsePolicy policy,CancellationToken ct=default,string? profileCode=null)
     {
         var p=profileCode is null?NkSourceProfiles.Get(sourceCode):NkSourceProfiles.Get(sourceCode,profileCode);var result=new ParsedNkFile();
@@ -30,6 +38,7 @@ public sealed class NkFileParser
                 ||policy.PeriodMode is not ("SELECTED_MONTH" or "YEAR_TO_PERIOD" or "EXPLICIT_RANGE"))throw new InvalidDataException("Invalid NK policy.");
             var book=NkXlsxReader.Read(stream,p,ct);
             if(!CheckHeaders(book,p,result))return result;
+            var actualSheet=book.ActualSheetName??p.Sheet;
             if(book.HasExternalLinks)result.Issues.Add(new("WARNING","EXTERNAL_LINKS_NOT_REFRESHED",null,"Workbook có liên kết ngoài. Hệ thống chỉ đọc cache trong file, không tải liên kết hay xác nhận cache đã cập nhật."));
             if(book.HeaderMergeCount>0)result.Issues.Add(new("INFO","HEADER_MERGES_SUPPORTED",null,$"Đọc {book.HeaderMergeCount} vùng gộp dọc trong tiêu đề đã biết; không gộp hoặc điền xuống dữ liệu."));
             var seen=new Dictionary<string,int>(StringComparer.Ordinal);var placeholders=0;
@@ -39,7 +48,7 @@ public sealed class NkFileParser
                 if(cells.Values.All(x=>string.IsNullOrWhiteSpace(x.Value)&&x.Raw.Formula is null))continue;
                 if(result.Rows.Count>=policy.MaxRows){result.Issues.Add(new("ERROR","ROW_LIMIT",null,"Vượt giới hạn dòng; không được xác nhận file đọc dở."));break;}
                 var before=result.Errors;var values=new Dictionary<string,object?>(StringComparer.Ordinal);
-                void Issue(string level,string code,NkField? f,string text)=>result.Issues.Add(new(level,code,f?.Header,text,record,p.Sheet));
+                void Issue(string level,string code,NkField? f,string text)=>result.Issues.Add(new(level,code,f?.Header,text,record,actualSheet));
                 foreach(var x in cells.Where(x=>x.Key>p.Width&&(!string.IsNullOrWhiteSpace(x.Value.Value)||x.Value.Raw.Formula is not null)))
                     Issue("ERROR","UNMAPPED_CELL",null,$"{x.Value.Raw.CellReference}: Có dữ liệu ngoài số cột của profile; giữ raw, cần phiên bản mẫu được xác nhận.");
                 foreach(var f in p.Fields)
@@ -70,6 +79,19 @@ public sealed class NkFileParser
                     {values[f.Property]=null;if(f.Required)E("REQUIRED","Thiếu ngày giao dịch dùng để kiểm tra phạm vi.");continue;}
                     if(text.Trim()=="-"&&f.Kind is not NkFieldKind.Text)
                     {values[f.Property]=null;placeholders++;if(f.Required)E("REQUIRED","Dấu '-' không thay cho ngày bắt buộc.");continue;}
+                    // Accept a source-specific missing-date marker only for seven
+                    // optional certificate fields. All transaction/tax/declaration
+                    // dates retain their existing strict date validation.
+                    if(p.Code=="NK_1000_HEADER1_44_V5" && f.Kind==NkFieldKind.Date && !f.Required
+                       && V5CertificateDateFields.Contains(f.Property)
+                       && type is ("s" or "str" or "inlineStr")
+                       && c?.Raw.Formula is null
+                       && string.Equals(text.Trim(),"N",StringComparison.OrdinalIgnoreCase))
+                    {
+                        values[f.Property]=null;
+                        W("CERTIFICATE_DATE_N_MARKER","N đã được giữ nguyên trong raw; typed date=NULL. Logistics cần xác nhận ý nghĩa N trước khi Confirm.");
+                        continue;
+                    }
                     if(type is not ("n" or "s" or "str" or "inlineStr" or "d"))
                     {values[f.Property]=null;E("CELL_TYPE_UNSUPPORTED","Kiểu ô không thuộc mẫu; không tự đổi Boolean thành số.");continue;}
                     switch(f.Kind)
@@ -111,7 +133,7 @@ public sealed class NkFileParser
                 }
                 var sig=PoProfile.Serialize(p.Fields.Select(f=>values.GetValueOrDefault(f.Property)).ToArray());
                 if(seen.TryGetValue(sig,out var previous))Issue("WARNING","DUPLICATE_ROW",null,$"Dữ liệu chuẩn giống dòng {previous}; vẫn giữ cả hai, không tự khử trùng.");else seen.Add(sig,record);
-                result.Rows.Add(new(record,p.Sheet,cells.OrderBy(x=>x.Key).Select(x=>x.Value.Raw).ToArray(),"DATA",result.Errors==before?values:null));
+                result.Rows.Add(new(record,actualSheet,cells.OrderBy(x=>x.Key).Select(x=>x.Value.Raw).ToArray(),"DATA",result.Errors==before?values:null));
             }
             if(placeholders>0)result.Issues.Add(new("INFO","PLACEHOLDER_AS_EMPTY",null,$"{placeholders} dấu '-' ở cột mã/ngày/số được biểu diễn null; raw giữ nguyên. Không chuyển thành số 0."));
         }

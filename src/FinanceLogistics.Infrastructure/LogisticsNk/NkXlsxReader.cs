@@ -8,7 +8,7 @@ using FinanceLogistics.Application.Imports;
 namespace FinanceLogistics.Infrastructure.LogisticsNk;
 
 internal sealed record NkCell(PoCellDto Raw, string? EffectiveFormula, bool FormulaSupported, string? Value, string Type);
-internal sealed record NkWorkbook(bool Date1904, SortedDictionary<int, Dictionary<int, NkCell>> Rows, bool HasExternalLinks, int HeaderMergeCount, HashSet<string> CoveredHeaderCells);
+internal sealed record NkWorkbook(bool Date1904, SortedDictionary<int, Dictionary<int, NkCell>> Rows, bool HasExternalLinks, int HeaderMergeCount, HashSet<string> CoveredHeaderCells, string? ActualSheetName = null);
 
 // Reads XLSX values and formula caches only. Never runs Excel, macros, external links or formulas.
 internal static class NkXlsxReader
@@ -62,7 +62,16 @@ internal static class NkXlsxReader
         if(zip.Entries.Any(e=>e.FullName.Contains("vbaProject",StringComparison.OrdinalIgnoreCase))||externalLinks&&!profile.UsesCachedValues)
             throw new InvalidDataException("Macros/external workbook links are outside this profile.");
         var book=Xml(zip,"xl/workbook.xml");var sheets=book.Root?.Element(S+"sheets")?.Elements(S+"sheet").ToArray()??[];
-        if(sheets.Length!=1||((string?)sheets[0].Attribute("state") is not (null or "visible"))||(string?)sheets[0].Attribute("name")!=profile.Sheet)throw new InvalidDataException($"Expected one sheet named {profile.Sheet}.");
+        // For V5 only, identify a single visible worksheet by its approved
+        // 44-column header on row 1 (checked by NkFileParser.CheckHeaders).
+        // Historical profiles retain strict sheet-name matching.
+        var actualSheetName=sheets.Length==1?(string?)sheets[0].Attribute("name"):null;
+        var flexibleSingleSheet=profile.Code=="NK_1000_HEADER1_44_V5";
+        if(sheets.Length!=1
+           || ((string?)sheets[0].Attribute("state") is not (null or "visible"))
+           || string.IsNullOrWhiteSpace(actualSheetName)
+           || (!flexibleSingleSheet && actualSheetName!=profile.Sheet))
+            throw new InvalidDataException($"Expected one visible worksheet matching profile {profile.Code}.");
         var links=Xml(zip,"xl/_rels/workbook.xml.rels").Root?.Elements(P+"Relationship").ToArray()??[];
         var selected=links.Where(x=>(string?)x.Attribute("Id")== (string?)sheets[0].Attribute(R+"id")).ToArray();
         if(selected.Length!=1||(string?)selected[0].Attribute("TargetMode")=="External"||(string?)selected[0].Attribute("Type")!=R.NamespaceName+"/worksheet")throw new InvalidDataException();
@@ -168,6 +177,6 @@ internal static class NkXlsxReader
                     throw new InvalidDataException("Merged header contains inconsistent hidden text.");
             }
         }
-        return new(epoch is "1" or "true",rows,externalLinks,merges.Length,coveredHeaders);
+        return new(epoch is "1" or "true",rows,externalLinks,merges.Length,coveredHeaders,actualSheetName);
     }
 }

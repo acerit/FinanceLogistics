@@ -52,8 +52,9 @@ public sealed class NkImportsController(INkImportFactory factory,IIdentityStore 
         var template=(await Imports.TemplatesAsync(ct)).SingleOrDefault(t=>t.TemplateVersionId==id);
         if(template is null)throw new PoImportFault(404,"NK_TEMPLATE_NOT_FOUND","Mẫu không thuộc nguồn/site hoặc chưa được duyệt.");
         var selected=FinanceLogistics.Infrastructure.LogisticsNk.NkSourceProfiles.Get(SourceCode,template.Profile);
-        if(selected.SchemaVersion!=4)
-            throw new PoImportFault(409,"NK_TEMPLATE_LEGACY","Mẫu cũ không có file tải mới; hãy chọn HEADER1_V4 hoặc dùng file nguồn gốc theo profile cũ.");
+        var currentProfile = SourceCode == "NK_1000" ? "NK_1000_HEADER1_44_V5" : "NK_6000_HEADER1_V4";
+        if (!string.Equals(selected.Code, currentProfile, StringComparison.Ordinal))
+            throw new PoImportFault(409, "NK_TEMPLATE_LEGACY", "Chỉ cho tải mẫu nhập khẩu đang áp dụng cho site này; các bản cũ vẫn xem được trong lịch sử.");
         var payload=FinanceLogistics.Api.Assets.HeaderRowOneXlsx.Build(selected.Sheet,selected.Fields.Select(f=>(f.Column,f.Header)));
         Response.Headers.CacheControl="no-store";
         return File(payload,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",$"{SourceCode}_template_{template.VersionNo}.xlsx");
@@ -66,14 +67,15 @@ public sealed class NkImportsController(INkImportFactory factory,IIdentityStore 
     {
         var actor = await RequireAsync("upload", ct);
         if (form.File is null) throw new PoImportFault(400, "FILE_REQUIRED", "Chưa chọn file.");
-        // New uploads must use a newly-approved single-header-row V4 template.
-        // Older V1-V3 profiles stay compiled for history, original download, and
-        // frozen-batch inspection, but cannot accept a new upload through HTTP.
+        // New uploads use an explicit, approved site-specific input contract.
+        // Previous profiles stay available for historical preview/original download.
         var chosenId=Convert.ToString(form.TemplateVersionId,CultureInfo.InvariantCulture);
         var chosen=(await Imports.TemplatesAsync(ct)).SingleOrDefault(t=>t.TemplateVersionId==chosenId);
         if(chosen is null)throw new PoImportFault(404,"TEMPLATE_NOT_FOUND","Mẫu không được duyệt cho nguồn/site này.");
-        if(!chosen.Profile.EndsWith("_HEADER1_V4",StringComparison.Ordinal))
-            throw new PoImportFault(409,"HEADER_ROW_ONE_REQUIRED","File nộp mới phải dùng template V4: header hàng 1, dữ liệu từ hàng 2.");
+        var requiredProfile = SourceCode == "NK_1000" ? "NK_1000_HEADER1_44_V5" : "NK_6000_HEADER1_V4";
+        if (!string.Equals(chosen.Profile, requiredProfile, StringComparison.Ordinal))
+            throw new PoImportFault(409, "NK_CURRENT_TEMPLATE_REQUIRED",
+                $"File nộp mới của {SourceCode} phải dùng template {requiredProfile}: header ở dòng 1, dữ liệu từ dòng 2.");
         await using var stream = form.File.OpenReadStream();
         var result = await Imports.UploadAsync(new(requirementId, form.TemplateVersionId,
             form.ClientUploadId, actor, Correlation(), form.File.FileName), stream, ct);

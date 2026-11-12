@@ -20,7 +20,7 @@ public static class NkSourceProfiles
     public const long MaxBytes=10*1024*1024;
     public static NkSourceProfile Get(string source) => All.SingleOrDefault(p=>p.SourceCode==source)
         ?? throw new PoImportFault(404,"NK_SOURCE_NOT_FOUND","Nguồn nhập khẩu này chưa được hỗ trợ.");
-    public static NkSourceProfile Get(string source, string profileCode) => All.Concat(V2).Concat(RealInputsV3).Concat(HeaderOneV4)
+    public static NkSourceProfile Get(string source, string profileCode) => All.Concat(V2).Concat(RealInputsV3).Concat(HeaderOneV4).Concat(HeaderOneV5)
         .SingleOrDefault(p=>p.SourceCode==source && p.Code==profileCode)
         ?? throw new PoImportFault(409,"NK_PROFILE_UNSUPPORTED","Profile không thuộc nguồn nhập khẩu đã chọn.");
     public static readonly NkSourceProfile[] All = [
@@ -180,4 +180,29 @@ public static class NkSourceProfiles
                 .Select((f,i)=>f with { Column=i+1,Header=p.HeaderRows[0][i] })
                 .ToArray()
         }).ToArray();
+
+    // NK_1000 input variant approved for 44 source fields (10 legacy middle
+    // columns and 2 tax-payment columns removed). No re-use of the old V4
+    // name: existing batch profiles and their frozen headers remain unchanged.
+    // Site 6000 deliberately continues to use its separate 30-column V4.
+    public static readonly NkSourceProfile[] HeaderOneV5 = [BuildNk1000Header44V5()];
+
+    private static NkSourceProfile BuildNk1000Header44V5()
+    {
+        var prior = HeaderOneV4.Single(p => p.SourceCode == "NK_1000");
+        var fields = prior.Fields
+            .Where(f => f.Column <= 17 || f.Column is >= 28 and <= 40 || f.Column is >= 43 and <= 56)
+            .Select((f, i) => f with { Column = i + 1 })
+            .ToArray();
+        if (fields.Length != 44 || fields[17].Property != "AwbBlNumber" || fields[30].Property != "Rmn")
+            throw new InvalidOperationException("NK_1000 V5 input contract must contain 44 mapped columns.");
+        return prior with
+        {
+            Code = "NK_1000_HEADER1_44_V5",
+            SchemaVersion = 5,
+            HeaderRows = [fields.Select(f => f.Header).ToArray()],
+            Fields = fields
+        };
+    }
+
 }
